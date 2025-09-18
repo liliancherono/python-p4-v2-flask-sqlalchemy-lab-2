@@ -11,22 +11,56 @@ metadata = MetaData(naming_convention={
 db = SQLAlchemy(metadata=metadata)
 
 
-class Customer(db.Model):
+class Customer(SerializerMixin, db.Model):
     __tablename__ = 'customers'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
 
+    # relationship to reviews
+    reviews = db.relationship('Review', back_populates='customer')
+
+    # association proxy to items through reviews
+    items = association_proxy('reviews', 'item')
+
+    # avoid recursive serialization
+    serialize_rules = ('-reviews.customer',)
+
     def __repr__(self):
         return f'<Customer {self.id}, {self.name}>'
 
 
-class Item(db.Model):
+class Item(SerializerMixin, db.Model):
     __tablename__ = 'items'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     price = db.Column(db.Float)
 
+    # relationship to reviews
+    reviews = db.relationship('Review', back_populates='item')
+
+    # avoid recursive serialization
+    serialize_rules = ('-reviews.item',)
+
     def __repr__(self):
         return f'<Item {self.id}, {self.name}, {self.price}>'
+
+
+class Review(SerializerMixin, db.Model):
+    __tablename__ = 'reviews'
+
+    id = db.Column(db.Integer, primary_key=True)
+    comment = db.Column(db.String)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'))
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'))
+
+    # relationships
+    customer = db.relationship('Customer', back_populates='reviews')
+    item = db.relationship('Item', back_populates='reviews')
+
+    # avoid recursive serialization
+    serialize_rules = ('-customer.reviews', '-item.reviews',)
+
+    def __repr__(self):
+        return f'<Review {self.id}, customer={self.customer_id}, item={self.item_id}>'
